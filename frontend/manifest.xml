@@ -9,11 +9,11 @@
 
   <Version>1.2.0.0</Version>
 
-  <ProviderName>Phishing Shield</ProviderName>
+  <ProviderName>Phsish Raksha</ProviderName>
 
   <DefaultLocale>en-US</DefaultLocale>
 
-  <DisplayName DefaultValue="Phishing Shield"/>
+  <DisplayName DefaultValue="Phsish Raksha"/>
 
   <Description DefaultValue="AI-powered phishing detection using SPF, DKIM, DMARC, VirusTotal and Google Gemini."/>
 
