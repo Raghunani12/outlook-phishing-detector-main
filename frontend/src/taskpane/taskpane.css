@@ -1,0 +1,314 @@
+/* ===================================================
+   Phishing Shield — Taskpane Styles
+   Premium, Apple-inspired visual system.
+   All functional selectors (IDs / classes used by JS)
+   are preserved exactly — only appearance changed.
+   =================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --surface-raised: #ffffff;
+    --border-hairline: rgba(0, 0, 0, 0.06);
+    --text-primary: #1d1d1f;
+    --text-secondary: #6e6e73;
+    --text-tertiary: #98989d;
+
+    --accent: #0071e3;
+    --accent-dark: #0058b0;
+
+    --safe: #1d8a4e;
+    --safe-soft: #e6f6ec;
+    --suspicious: #c2730a;
+    --suspicious-soft: #fdf1e1;
+    --danger: #d70015;
+    --danger-soft: #fce8ea;
+
+    --radius-lg: 16px;
+    --radius-md: 12px;
+    --radius-sm: 8px;
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.05);
+    --shadow-card-hover: 0 2px 4px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(0, 0, 0, 0.07);
+    --shadow-button: 0 1px 2px rgba(0, 113, 227, 0.15), 0 6px 16px rgba(0, 113, 227, 0.22);
+
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+body {
+    background: var(--bg);
+    color: var(--text-primary);
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+                 "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* ---- Header ---- */
+.app-header {
+    background: linear-gradient(180deg, #1d1d1f 0%, #2c2c2e 100%);
+    color: #ffffff;
+    padding: 22px 20px 20px;
+    text-align: center;
+    position: relative;
+}
+
+.app-header h1 {
+    margin: 0 0 4px;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+
+.app-header p {
+    color: rgba(255, 255, 255, 0.55) !important;
+    font-size: 11.5px !important;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+}
+
+/* ---- Layout ---- */
+.app-container {
+    padding: 20px 16px 28px;
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+/* ---- Scan button ---- */
+.action-section {
+    margin-bottom: 22px;
+    text-align: center;
+}
+
+#analyze-btn {
+    width: 100%;
+    height: 46px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    border: none;
+    background: linear-gradient(180deg, #0a84ff 0%, var(--accent) 100%);
+    color: #ffffff;
+    box-shadow: var(--shadow-button);
+    transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease), opacity 0.15s var(--ease);
+}
+
+#analyze-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 113, 227, 0.18), 0 10px 22px rgba(0, 113, 227, 0.28);
+}
+
+#analyze-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 113, 227, 0.18);
+}
+
+#analyze-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.ms-Button-label {
+    color: inherit;
+    font-weight: inherit;
+}
+
+/* ---- Spinner ---- */
+.spinner {
+    margin-top: 12px;
+    font-style: normal;
+    color: var(--text-secondary);
+    font-size: 12px;
+    letter-spacing: 0.01em;
+}
+
+/* ---- Verdict banner ---- */
+.verdict-card {
+    padding: 22px 16px;
+    border-radius: var(--radius-lg);
+    text-align: center;
+    color: white;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-card);
+    background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 55%);
+    background-blend-mode: overlay;
+}
+
+.verdict-card h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+}
+
+.bg-safe       { background-color: var(--safe); }
+.bg-suspicious { background-color: var(--suspicious); }
+.bg-danger     { background-color: var(--danger); }
+
+.score-container {
+    font-size: 12.5px;
+    font-weight: 600;
+    opacity: 0.9;
+    letter-spacing: 0.01em;
+}
+
+/* ---- Section headings ---- */
+h3 {
+    font-size: 11.5px;
+    font-weight: 700;
+    margin: 22px 2px 10px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+/* ---- Tech cards ---- */
+.tech-card {
+    background: var(--surface);
+    padding: 14px 16px;
+    border-radius: var(--radius-md);
+    margin-bottom: 12px;
+    box-shadow: var(--shadow-card);
+    border: 1px solid var(--border-hairline);
+    transition: box-shadow 0.2s var(--ease);
+}
+
+.tech-card:hover {
+    box-shadow: var(--shadow-card-hover);
+}
+
+.tech-card h4 {
+    margin: 0 0 10px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.005em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* ---- Metric rows ---- */
+.metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border-hairline);
+    font-size: 12px;
+    gap: 10px;
+}
+
+.metric-row:last-child {
+    border-bottom: none;
+    padding-bottom: 1px;
+}
+
+.metric-row:first-child {
+    padding-top: 1px;
+}
+
+.metric-row span {
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    font-weight: 400;
+}
+
+.metric-row strong {
+    text-align: right;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+    word-break: break-all;
+}
+
+/* Auth value colour cues */
+.metric-row strong[id^="meta-"]:not(#meta-domain):not(#meta-urls-extracted) {
+    font-family: "SF Mono", "Courier New", monospace;
+    font-size: 11px;
+    background: var(--bg);
+    padding: 2px 7px;
+    border-radius: 5px;
+    letter-spacing: 0.01em;
+}
+
+/* ---- Risk indicator list ---- */
+#threat-reasons-container {
+    background: var(--danger-soft);
+    border: 1px solid rgba(215, 0, 21, 0.12);
+    border-radius: var(--radius-md);
+    padding: 4px 16px 12px;
+    margin-bottom: 16px;
+}
+
+#threat-reasons-container h3 {
+    color: var(--danger);
+    margin-top: 14px;
+}
+
+#threat-reasons-container ul {
+    margin: 6px 0 4px;
+    padding-left: 18px;
+}
+
+#threat-reasons-container li {
+    font-size: 12px;
+    line-height: 1.6;
+    margin-bottom: 6px;
+    color: #8b0011;
+}
+
+/* ---- URL items ---- */
+.url-item {
+    font-size: 11.5px;
+    line-height: 1.55;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border-hairline);
+    word-break: break-all;
+    color: var(--text-secondary);
+}
+
+.url-item:last-child {
+    border-bottom: none;
+    padding-bottom: 1px;
+}
+
+.url-item:first-child {
+    padding-top: 1px;
+}
+
+/* ---- AI card accent ---- */
+.tech-card[style*="border-left"] {
+    border: 1px solid var(--border-hairline) !important;
+    border-left: 3px solid #8a4fff !important;
+    background: linear-gradient(180deg, #fbfaff 0%, var(--surface) 60%);
+}
+
+#ai-verdict-text {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+/* ---- Utility ---- */
+.hidden { display: none !important; }
+
+/* ---- Scrollbar polish ---- */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.18); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.28); }

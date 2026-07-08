@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Phishing Shield</title>
+
+    <!-- Office.js — must be first -->
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+
+    <!-- Fluent UI core (icons, fonts) -->
+    <link rel="stylesheet"
+          href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css" />
+
+    <link rel="stylesheet" href="taskpane.css" />
+</head>
+
+<body class="ms-font-m ms-welcome">
+
+    <!-- ===== HEADER ===== -->
+    <header class="app-header">
+        <h1 class="ms-font-xl">🛡 Phishing Shield</h1>
+        <p>Powered by VirusTotal &amp; Gemini AI</p>
+    </header>
+
+    <!-- ===== MAIN ===== -->
+    <main class="app-container">
+
+        <!-- Scan button + spinner -->
+        <section class="action-section">
+            <button id="analyze-btn" class="ms-Button ms-Button--primary">
+                <span class="ms-Button-label">🔍 Scan This Email</span>
+            </button>
+            <div id="loading-indicator" class="spinner hidden">
+                ⏳ Analyzing — this may take 10–20 seconds…
+            </div>
+        </section>
+
+        <!-- ===== RESULTS DASHBOARD ===== -->
+        <section id="results-dashboard" class="hidden">
+
+            <!-- Verdict banner -->
+            <div id="verdict-banner" class="verdict-card">
+                <h2 id="verdict-text">—</h2>
+                <div class="score-container">
+                    Risk Score: <span id="risk-score">0</span>/100
+                </div>
+            </div>
+
+            <!-- AI narrative card -->
+            <div class="tech-card" style="border-left:4px solid #8a2be2;">
+                <h4>🤖 AI Analysis</h4>
+                <p id="ai-verdict-text">
+                    Waiting for engine…
+                </p>
+            </div>
+
+            <!-- Risk flags -->
+            <div id="threat-reasons-container" class="hidden">
+                <h3>⚑ Detected Risk Indicators</h3>
+                <ul id="reasons-list"></ul>
+            </div>
+
+            <h3>Technical Breakdown</h3>
+
+            <!-- Email authentication -->
+            <div class="tech-card">
+                <h4>🔒 Email Authentication</h4>
+                <div class="metric-row">
+                    <span>SPF Result</span>
+                    <strong id="meta-spf">–</strong>
+                </div>
+                <div class="metric-row">
+                    <span>DKIM Result</span>
+                    <strong id="meta-dkim">–</strong>
+                </div>
+                <div class="metric-row">
+                    <span>DMARC Result</span>
+                    <strong id="meta-dmarc">–</strong>
+                </div>
+            </div>
+
+            <!-- DNS policies -->
+            <div class="tech-card">
+                <h4>📋 DNS Policy Strength</h4>
+                <div class="metric-row">
+                    <span>SPF Record Present</span>
+                    <strong id="dns-has-spf">–</strong>
+                </div>
+                <div class="metric-row">
+                    <span>SPF Enforcement</span>
+                    <strong id="dns-spf-policy">–</strong>
+                </div>
+                <div class="metric-row">
+                    <span>DMARC Record Present</span>
+                    <strong id="dns-has-dmarc">–</strong>
+                </div>
+                <div class="metric-row">
+                    <span>DMARC Policy</span>
+                    <strong id="dns-dmarc-policy">–</strong>
+                </div>
+            </div>
+
+            <!-- URL analysis -->
+            <div class="tech-card">
+                <h4>🌐 URL Analysis (VirusTotal)</h4>
+                <div id="url-list-container">
+                    No URLs detected in this email body.
+                </div>
+            </div>
+
+            <!-- Sender meta -->
+            <div class="tech-card">
+                <h4>📧 Scan Metadata</h4>
+                <div class="metric-row">
+                    <span>Sender Domain</span>
+                    <strong id="meta-domain">–</strong>
+                </div>
+                <div class="metric-row">
+                    <span>URLs Extracted</span>
+                    <strong id="meta-urls-extracted">–</strong>
+                </div>
+            </div>
+
+        </section>
+        <!-- /results-dashboard -->
+
+    </main>
+
+</body>
+</html>

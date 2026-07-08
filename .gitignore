@@ -1,0 +1,22 @@
+# Node artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.webpack/
+
+# Python artifacts
+backend/venv/
+backend/__pycache__/
+backend/*.py[cod]
+backend/**/*.py[cod]
+backend/*.pyo
+backend/.Python
+
+# Environment variables
+.env
+backend/.env
+
+# OS and editor files
+.DS_Store
+.vscode/
+.idea/
