@@ -1,7 +1,9 @@
 /* global document, Office, console, fetch, DOMParser */
 
-const BACKEND_URL = "http://127.0.0.1:8000/api/analyze";
-const DEBUG_URL   = "http://127.0.0.1:8000/api/debug";
+// const BACKEND_URL = "http://127.0.0.1:8000/api/analyze";
+// const DEBUG_URL   = "http://127.0.0.1:8000/api/debug";
+const BACKEND_URL = "https://outlook-phishing-detector-main-production.up.railway.app/api/analyze";
+const DEBUG_URL   = "https://outlook-phishing-detector-main-production.up.railway.app/api/debug";
 const FETCH_TIMEOUT_MS = 35_000;
 
 // ---------------------------------------------------------------------------
