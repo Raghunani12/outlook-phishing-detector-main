@@ -25,7 +25,8 @@
 
   <HighResolutionIconUrl DefaultValue="https://outlook-phishing-detector-main-f1.vercel.app/assets/icon-128.png"/>
 
-  <SupportUrl DefaultValue="https://outlook-phishing-detector-main-f1.vercel.app"/>
+  <!-- <SupportUrl DefaultValue="https://outlook-phishing-detector-main-f1.vercel.app"/> -->
+  <SupportUrl DefaultValue="https://localhost:3000"/>
 
   <!-- ========================= -->
   <!-- Allowed Domains -->
@@ -34,11 +35,14 @@
   <AppDomains>
 
     <AppDomain>
-      https://outlook-phishing-detector-main-f1.vercel.app
+      <!-- https://outlook-phishing-detector-main-f1.vercel.app -->
+      https://localhost:3000
+
     </AppDomain>
 
     <AppDomain>
-      https://outlook-phishing-detector-main-production.up.railway.app
+      <!-- https://outlook-phishing-detector-main-production.up.railway.app -->
+      https://localhost:8000
     </AppDomain>
 
   </AppDomains>
@@ -73,7 +77,8 @@
 
       <DesktopSettings>
 
-        <SourceLocation DefaultValue="https://outlook-phishing-detector-main-f1.vercel.app/taskpane.html"/>
+        <!-- <SourceLocation DefaultValue="https://outlook-phishing-detector-main-f1.vercel.app/taskpane.html"/> -->
+        <SourceLocation DefaultValue="https://localhost:3000/taskpane.html"/>
 
         <RequestedHeight>300</RequestedHeight>
 
@@ -204,13 +209,19 @@
 
       <bt:Urls>
 
+        <!-- <bt:Url
+            id="Commands.Url"
+            DefaultValue="https://outlook-phishing-detector-main-f1.vercel.app/commands.html"/> -->
         <bt:Url
             id="Commands.Url"
-            DefaultValue="https://outlook-phishing-detector-main-f1.vercel.app/commands.html"/>
-
+            DefaultValue="https://localhost:3000/commands.html"/> 
         <bt:Url
             id="Taskpane.Url"
-            DefaultValue="https://outlook-phishing-detector-main-f1.vercel.app/taskpane.html"/>
+            DefaultValue="https://localhost:3000/taskpane.html"/>
+
+        <!-- <bt:Url
+            id="Taskpane.Url"
+            DefaultValue="https://outlook-phishing-detector-main-f1.vercel.app/taskpane.html"/> -->
 
       </bt:Urls>
 

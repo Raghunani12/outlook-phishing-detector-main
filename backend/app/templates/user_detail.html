@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{{ d.email }} — Phish Raksha Admin{% endblock %}
+{% block content %}
+
+<a href="/admin/users" class="back-link">&larr; All users</a>
+<h1>{{ d.email }}</h1>
+
+<div class="tile-grid">
+    <div class="tile">
+        <div class="tile-label">Total scans</div>
+        <div class="tile-value">{{ d.total_scans }}</div>
+    </div>
+    <div class="tile">
+        <div class="tile-label">Safe</div>
+        <div class="tile-value">{{ d.verdict_breakdown.SAFE }}</div>
+    </div>
+    <div class="tile tile-warn">
+        <div class="tile-label">Suspicious</div>
+        <div class="tile-value">{{ d.verdict_breakdown.SUSPICIOUS }}</div>
+    </div>
+    <div class="tile tile-danger">
+        <div class="tile-label">Phishing detected</div>
+        <div class="tile-value">{{ d.verdict_breakdown.PHISHING_DETECTED }}</div>
+    </div>
+</div>
+
+{% if d.top_senders %}
+<div class="panel">
+    <h2>Most frequent senders (this user)</h2>
+    <table class="data-table">
+        <thead><tr><th>Domain</th><th>Scans</th></tr></thead>
+        <tbody>
+        {% for s in d.top_senders %}
+            <tr><td>{{ s.domain }}</td><td>{{ s.count }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="panel">
+    <h2>Scan history</h2>
+    {% if d.scans %}
+    <table class="data-table full-width">
+        <thead>
+            <tr><th>Date</th><th>Sender</th><th>Verdict</th><th>Risk score</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for s in d.scans %}
+            <tr onclick="window.location='/admin/scans/{{ s._id }}'" class="clickable-row">
+                <td>{{ s.scanned_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ s.sender_email }}</td>
+                <td><span class="badge badge-{{ s.verdict|lower|replace('_','-') }}">{{ s.verdict }}</span></td>
+                <td>{{ s.risk_score }}</td>
+                <td class="view-link">View →</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-state">No scans yet for this user.</p>
+    {% endif %}
+</div>
+
+{% endblock %}

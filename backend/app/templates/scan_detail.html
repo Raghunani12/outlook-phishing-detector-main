@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Scan {{ scan._id }} — Phish Raksha Admin{% endblock %}
+{% block content %}
+
+<a href="/admin/users/{{ scan.scanned_by }}" class="back-link">&larr; {{ scan.scanned_by }}</a>
+
+<div class="scan-header">
+    <h1>Scan detail</h1>
+    <span class="badge badge-{{ scan.verdict|lower|replace('_','-') }} badge-lg">{{ scan.verdict }}</span>
+</div>
+
+<div class="tile-grid">
+    <div class="tile"><div class="tile-label">Risk score</div><div class="tile-value">{{ scan.risk_score }}/100</div></div>
+    <div class="tile"><div class="tile-label">Scanned by</div><div class="tile-value tile-value-sm">{{ scan.scanned_by }}</div></div>
+    <div class="tile"><div class="tile-label">Sender</div><div class="tile-value tile-value-sm">{{ scan.sender_email }}</div></div>
+    <div class="tile"><div class="tile-label">Scanned at</div><div class="tile-value tile-value-sm">{{ scan.scanned_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</div></div>
+</div>
+
+<div class="panel">
+    <h2>AI analysis</h2>
+    <p>{{ scan.ai_analysis }}</p>
+</div>
+
+{% if scan.reasons %}
+<div class="panel">
+    <h2>Risk indicators</h2>
+    <ul class="reason-list">
+    {% for r in scan.reasons %}
+        <li>{{ r }}</li>
+    {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<div class="panel-row">
+    <div class="panel">
+        <h2>Authentication results</h2>
+        <div class="metric-row"><span>SPF</span><strong>{{ scan.auth_results.spf }}</strong></div>
+        <div class="metric-row"><span>DKIM</span><strong>{{ scan.auth_results.dkim }}</strong></div>
+        <div class="metric-row"><span>DMARC</span><strong>{{ scan.auth_results.dmarc }}</strong></div>
+    </div>
+    <div class="panel">
+        <h2>DNS policy</h2>
+        <div class="metric-row"><span>SPF present</span><strong>{{ 'Yes' if scan.dns_policies.has_spf else 'No' }}</strong></div>
+        <div class="metric-row"><span>SPF policy</span><strong>{{ scan.dns_policies.spf_policy }}</strong></div>
+        <div class="metric-row"><span>DMARC present</span><strong>{{ 'Yes' if scan.dns_policies.has_dmarc else 'No' }}</strong></div>
+        <div class="metric-row"><span>DMARC policy</span><strong>{{ scan.dns_policies.dmarc_policy }}</strong></div>
+    </div>
+</div>
+
+<div class="panel">
+    <h2>URL analysis</h2>
+    {% if scan.url_analysis %}
+    <table class="data-table full-width">
+        <thead><tr><th>URL</th><th>Status</th><th>Malicious</th><th>Suspicious</th></tr></thead>
+        <tbody>
+        {% for url, r in scan.url_analysis.items() %}
+            <tr>
+                <td class="url-cell">{{ url }}</td>
+                <td>{{ r.status }}</td>
+                <td>{{ r.malicious_count }}</td>
+                <td>{{ r.suspicious_count }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-state">No URLs found in this email.</p>
+    {% endif %}
+</div>
+
+<div class="panel">
+    <h2>Pipeline latency</h2>
+    <div class="tile-grid tile-grid-4">
+        {% for stage, ms in scan.stage_latency_ms.items() %}
+        <div class="tile tile-small"><div class="tile-label">{{ stage }}</div><div class="tile-value">{{ ms }} ms</div></div>
+        {% endfor %}
+    </div>
+</div>
+
+<a class="source-link" href="/admin/scans/{{ scan._id }}/source">View raw source data →</a>
+
+{% endblock %}

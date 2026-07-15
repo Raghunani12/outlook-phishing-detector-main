@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Source — Scan {{ scan._id }}{% endblock %}
+{% block content %}
+
+<a href="/admin/scans/{{ scan._id }}" class="back-link">&larr; Scan detail</a>
+<h1>Raw source data</h1>
+<p class="page-subtitle">Unprocessed inputs and upstream API responses for this scan. Nothing here has been summarized or interpreted.</p>
+
+<div class="panel">
+    <h2>Raw email headers</h2>
+    <pre class="raw-block">{{ raw.raw_headers or '(empty — headers were not available for this scan)' }}</pre>
+</div>
+
+<div class="panel">
+    <h2>Raw email body — text</h2>
+    <pre class="raw-block">{{ raw.raw_body_text or '(not captured)' }}</pre>
+</div>
+
+<div class="panel">
+    <h2>Raw email body — HTML</h2>
+    <pre class="raw-block">{{ raw.raw_body_html or '(not captured)' }}</pre>
+</div>
+
+<div class="panel">
+    <h2>Raw DNS answers</h2>
+    <pre class="raw-block">{{ raw.raw_dns_answers | tojson(indent=2) if raw.raw_dns_answers else '(no domain resolved)' }}</pre>
+</div>
+
+<div class="panel">
+    <h2>Raw VirusTotal responses</h2>
+    <pre class="raw-block">{{ raw.raw_vt_responses | tojson(indent=2) if raw.raw_vt_responses else '(no URLs scanned)' }}</pre>
+</div>
+
+<div class="panel">
+    <h2>Exact Gemini prompt sent</h2>
+    <pre class="raw-block">{{ raw.raw_gemini_prompt or '(unavailable)' }}</pre>
+</div>
+
+<div class="panel">
+    <h2>Exact Gemini response received</h2>
+    <pre class="raw-block">{{ raw.raw_gemini_response or '(unavailable)' }}</pre>
+</div>
+
+{% endblock %}

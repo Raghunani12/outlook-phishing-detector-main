@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Overview — Phish Raksha Admin{% endblock %}
+{% block content %}
+
+<h1>Overview</h1>
+<p class="page-subtitle">Org-wide email security posture, updated in real time.</p>
+
+<div class="tile-grid">
+    <div class="tile">
+        <div class="tile-label">Total scans</div>
+        <div class="tile-value">{{ m.total_scans }}</div>
+    </div>
+    <div class="tile">
+        <div class="tile-label">Scans today</div>
+        <div class="tile-value">{{ m.scans_today }}</div>
+    </div>
+    <div class="tile">
+        <div class="tile-label">Average risk score</div>
+        <div class="tile-value">{{ m.avg_risk_score }}</div>
+    </div>
+    <div class="tile {{ 'tile-warn' if m.auth_fail_rate > 30 }}">
+        <div class="tile-label">Auth failure rate</div>
+        <div class="tile-value">{{ m.auth_fail_rate }}%</div>
+    </div>
+    <div class="tile {{ 'tile-warn' if m.malicious_url_rate > 5 }}">
+        <div class="tile-label">Malicious URL hit rate</div>
+        <div class="tile-value">{{ m.malicious_url_rate }}%</div>
+        <div class="tile-sub">{{ m.total_urls_scanned }} URLs scanned</div>
+    </div>
+    <div class="tile {{ 'tile-warn' if m.gemini_error_count > 0 }}">
+        <div class="tile-label">AI analysis errors</div>
+        <div class="tile-value">{{ m.gemini_error_count }}</div>
+    </div>
+</div>
+
+<div class="panel-row">
+    <div class="panel">
+        <h2>Verdict breakdown</h2>
+        <canvas id="verdictChart" height="220"></canvas>
+    </div>
+    <div class="panel">
+        <h2>Scan volume — last 14 days</h2>
+        <canvas id="volumeChart" height="220"></canvas>
+    </div>
+</div>
+
+<div class="panel">
+    <h2>Authentication pass rate — last 14 days</h2>
+    <canvas id="authChart" height="180"></canvas>
+</div>
+
+<div class="panel-row">
+    <div class="panel">
+        <h2>Top targeted users</h2>
+        <p class="panel-sub">Employees receiving the most Suspicious / Phishing-flagged mail</p>
+        {% if m.top_targeted_users %}
+        <table class="data-table">
+            <thead><tr><th>Employee</th><th>Flagged emails</th></tr></thead>
+            <tbody>
+            {% for u in m.top_targeted_users %}
+                <tr>
+                    <td><a href="/admin/users/{{ u.email }}">{{ u.email }}</a></td>
+                    <td>{{ u.flagged_count }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty-state">No flagged scans yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="panel">
+        <h2>Repeat offender domains</h2>
+        <p class="panel-sub">Sender domains appearing across multiple scans</p>
+        {% if m.repeat_offenders %}
+        <table class="data-table">
+            <thead><tr><th>Domain</th><th>Scans</th><th>Peak risk</th></tr></thead>
+            <tbody>
+            {% for r in m.repeat_offenders %}
+                <tr>
+                    <td>{{ r.domain }}</td>
+                    <td>{{ r.count }}</td>
+                    <td>{{ r.max_risk }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty-state">Not enough data yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="panel">
+    <h2>External API health</h2>
+    <p class="panel-sub">Average latency per pipeline stage, across all scans</p>
+    <div class="tile-grid tile-grid-4">
+        <div class="tile tile-small"><div class="tile-label">DNS lookups</div><div class="tile-value">{{ m.latency.avg_dns_ms }} ms</div></div>
+        <div class="tile tile-small"><div class="tile-label">VirusTotal</div><div class="tile-value">{{ m.latency.avg_vt_ms }} ms</div></div>
+        <div class="tile tile-small"><div class="tile-label">Gemini AI</div><div class="tile-value">{{ m.latency.avg_gemini_ms }} ms</div></div>
+        <div class="tile tile-small"><div class="tile-label">Total scan time</div><div class="tile-value">{{ m.latency.avg_total_ms }} ms</div></div>
+    </div>
+</div>
+
+<script>
+    const chartFont = { family: "'Inter', -apple-system, sans-serif", size: 12 };
+    Chart.defaults.font = chartFont;
+    Chart.defaults.color = "#6b7280";
+
+    new Chart(document.getElementById('verdictChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Safe', 'Suspicious', 'Phishing'],
+            datasets: [{
+                data: [{{ m.verdict_breakdown.SAFE }}, {{ m.verdict_breakdown.SUSPICIOUS }}, {{ m.verdict_breakdown.PHISHING_DETECTED }}],
+                backgroundColor: ['#2f9e63', '#e0a72e', '#d64545'],
+                borderWidth: 0,
+            }]
+        },
+        options: { plugins: { legend: { position: 'bottom' } } }
+    });
+
+    new Chart(document.getElementById('volumeChart'), {
+        type: 'line',
+        data: {
+            labels: {{ m.volume_trend | map(attribute='date') | list | tojson }},
+            datasets: [{
+                label: 'Scans',
+                data: {{ m.volume_trend | map(attribute='count') | list | tojson }},
+                borderColor: '#3457d5',
+                backgroundColor: 'rgba(52, 87, 213, 0.08)',
+                tension: 0.3,
+                fill: true,
+            }]
+        },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+
+    new Chart(document.getElementById('authChart'), {
+        type: 'line',
+        data: {
+            labels: {{ m.auth_trend | map(attribute='date') | list | tojson }},
+            datasets: [
+                { label: 'SPF pass %', data: {{ m.auth_trend | map(attribute='spf_pass_rate') | list | tojson }}, borderColor: '#3457d5', tension: 0.3 },
+                { label: 'DKIM pass %', data: {{ m.auth_trend | map(attribute='dkim_pass_rate') | list | tojson }}, borderColor: '#2f9e63', tension: 0.3 },
+                { label: 'DMARC pass %', data: {{ m.auth_trend | map(attribute='dmarc_pass_rate') | list | tojson }}, borderColor: '#e0a72e', tension: 0.3 },
+            ]
+        },
+        options: { scales: { y: { beginAtZero: true, max: 100 } } }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Users — Phish Raksha Admin{% endblock %}
+{% block content %}
+
+<h1>Users</h1>
+<p class="page-subtitle">Every employee who has run a scan, most active first.</p>
+
+<form class="search-bar" method="get" action="/admin/users">
+    <input type="text" name="search" placeholder="Search by email…" value="{{ search }}" />
+    <button type="submit">Search</button>
+</form>
+
+{% if users %}
+<table class="data-table full-width">
+    <thead>
+        <tr>
+            <th>Employee</th>
+            <th>Total scans</th>
+            <th>High-risk scans</th>
+            <th>Last scan</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for u in users %}
+        <tr onclick="window.location='/admin/users/{{ u.email }}'" class="clickable-row">
+            <td>{{ u.email }}</td>
+            <td>{{ u.total_scans }}</td>
+            <td>{{ u.high_risk_count }}</td>
+            <td>{{ u.last_scan_at.strftime('%Y-%m-%d %H:%M') if u.last_scan_at else '–' }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty-state">No scans recorded yet.</p>
+{% endif %}
+
+{% endblock %}

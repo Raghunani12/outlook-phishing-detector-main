@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Sign in — Phish Raksha Admin</title>
+    <link rel="stylesheet" href="/admin/static/admin.css" />
+</head>
+<body class="login-body">
+    <form class="login-card" method="post" action="/admin/login">
+        <h1>Phish Raksha</h1>
+        <p class="subtitle">Admin Dashboard</p>
+        {% if error %}<div class="login-error">{{ error }}</div>{% endif %}
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" autofocus required />
+        <button type="submit">Sign in</button>
+    </form>
+</body>
+</html>

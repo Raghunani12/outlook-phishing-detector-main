@@ -11,6 +11,8 @@ backend/*.py[cod]
 backend/**/*.py[cod]
 backend/*.pyo
 backend/.Python
+backend/.mypy_cache/
+
 
 # Environment variables
 .env

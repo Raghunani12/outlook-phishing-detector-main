@@ -1,53 +1,87 @@
-
-
+import base64
 import os
 import re
-import requests
+import uuid
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from typing import List, Optional
+
 import dns.resolver
-from typing import List
-from pydantic import BaseModel
+import requests
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
+from pydantic import BaseModel
+from starlette.middleware.sessions import SessionMiddleware
 
-# --- [NEW] Import the official modern Google GenAI SDK ---
 from google import genai
 
+from app.database import connect_to_mongo, close_mongo_connection, scans_collection, raw_collection
+from app.logger import setup_logging, get_logger, new_correlation_id, StageTimer
+from app.admin.routes import router as admin_router
+
 load_dotenv()
+setup_logging()
+log = get_logger("phish_raksha")
+
 VT_API_KEY = os.getenv("VT_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", "dev-only-insecure-key")
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",")]
 
-# --- [NEW] Initialize the centralized client object ---
 if GEMINI_API_KEY:
-    print("[BACKEND INIT] Initializing official google-genai Client object with API key.")
+    log.info("Initializing Gemini client", extra={"extra_fields": {"event": "startup.gemini_init"}})
     ai_client = genai.Client(api_key=GEMINI_API_KEY)
 else:
-    print("[BACKEND INIT] WARNING: GEMINI_API_KEY not found in environment settings.")
+    log.warning("GEMINI_API_KEY not set -- AI verdicts will be unavailable",
+                extra={"extra_fields": {"event": "startup.gemini_missing_key"}})
     ai_client = None
 
-app = FastAPI(title="Phishing Shield Modern Security Engine")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    log.info("Connecting to MongoDB Atlas", extra={"extra_fields": {"event": "startup.mongo_connect"}})
+    await connect_to_mongo()
+    log.info("MongoDB connected", extra={"extra_fields": {"event": "startup.mongo_connected"}})
+    yield
+    await close_mongo_connection()
+
+
+app = FastAPI(title="Phish Raksha Security Engine", lifespan=lifespan)
+
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.include_router(admin_router)
+
+
 class EmailAnalysisRequest(BaseModel):
     sender_email: str
     headers: str
     urls: List[str]
+    scanned_by: Optional[str] = None      # Office.js userProfile.emailAddress
+    body_html: Optional[str] = ""         # raw email body, for the admin "Source" view only
+    body_text: Optional[str] = ""
+
+
+# ---------------------------------------------------------------------------
+# Analysis functions (same logic as before; each now also returns the raw
+# upstream payload so it can be persisted separately for the admin dashboard)
+# ---------------------------------------------------------------------------
 
 def parse_authentication_results(headers: str) -> dict:
     results = {"spf": "unknown", "dkim": "unknown", "dmarc": "unknown"}
-    print("\n" + "="*60)
-    print(f"[BACKEND PARSER STEP] Starting headers text parse. Input string length: {len(headers)}")
-    print("="*60)
-    
+
     if not headers or headers.strip() == "":
-        print("[BACKEND PARSER WARNING] The headers block passed from the client is empty.")
+        log.warning("Empty headers block received from client",
+                    extra={"extra_fields": {"event": "parse_auth.empty_headers"}})
         return results
 
     auth_lines = re.findall(
@@ -55,44 +89,36 @@ def parse_authentication_results(headers: str) -> dict:
         headers,
         re.IGNORECASE
     )
-    
-    print(f"[BACKEND PARSER STEP] Found {len(auth_lines)} 'Authentication-Results' regex blocks in header data stream.")
-    for idx, block in enumerate(auth_lines):
-        print(f" -> Analyzing regex matching block match target idx ({idx}):\n{block[:200]}...\n")
-        
-        # Check SPF
-        if not results["spf"] or results["spf"] == "unknown":
-            spf_m = re.search(r"\bspf\s*=\s*([a-zA-r]+)", block, re.IGNORECASE)
-            if spf_m:
-                results["spf"] = spf_m.group(1).lower()
-                print(f"    [*] Found SPF state token match: {results['spf']}")
 
-        # Check DKIM
-        if not results["dkim"] or results["dkim"] == "unknown":
-            dkim_m = re.search(r"\bdkim\s*=\s*([a-zA-r]+)", block, re.IGNORECASE)
-            if dkim_m:
-                results["dkim"] = dkim_m.group(1).lower()
-                print(f"    [*] Found DKIM state token match: {results['dkim']}")
+    for block in auth_lines:
+        if results["spf"] == "unknown":
+            m = re.search(r"\bspf\s*=\s*([a-zA-Z]+)", block, re.IGNORECASE)
+            if m:
+                results["spf"] = m.group(1).lower()
+        if results["dkim"] == "unknown":
+            m = re.search(r"\bdkim\s*=\s*([a-zA-Z]+)", block, re.IGNORECASE)
+            if m:
+                results["dkim"] = m.group(1).lower()
+        if results["dmarc"] == "unknown":
+            m = re.search(r"\bdmarc\s*=\s*([a-zA-Z]+)", block, re.IGNORECASE)
+            if m:
+                results["dmarc"] = m.group(1).lower()
 
-        # Check DMARC
-        if not results["dmarc"] or results["dmarc"] == "unknown":
-            dmarc_m = re.search(r"\bdmarc\s*=\s*([a-zA-r]+)", block, re.IGNORECASE)
-            if dmarc_m:
-                results["dmarc"] = dmarc_m.group(1).lower()
-                print(f"    [*] Found DMARC state token match: {results['dmarc']}")
-
-    print(f"[BACKEND PARSER COMPLETED] Extracted authentication metrics state results: {results}")
+    log.info("Parsed authentication results", extra={"extra_fields": {
+        "event": "parse_auth.completed", "auth_blocks_found": len(auth_lines), "result": results
+    }})
     return results
 
-def check_domain_dns_policy(domain: str) -> dict:
-    print(f"\n[BACKEND DNS STEP] Performing lookups on domain: {domain}")
+
+def check_domain_dns_policy(domain: str) -> tuple[dict, dict]:
     policies = {"has_spf": False, "has_dmarc": False, "spf_policy": "none", "dmarc_policy": "none"}
-    
-    # SPF check
+    raw = {"spf_txt_records": [], "dmarc_txt_records": [], "errors": []}
+
     try:
         answers = dns.resolver.resolve(domain, 'TXT')
         for rdata in answers:
-            txt_record = "".join([b.decode('utf-8') for b in rdata.strings])
+            txt_record = "".join(b.decode('utf-8') for b in rdata.strings)
+            raw["spf_txt_records"].append(txt_record)
             if "v=spf1" in txt_record:
                 policies["has_spf"] = True
                 if "-all" in txt_record:
@@ -101,31 +127,36 @@ def check_domain_dns_policy(domain: str) -> dict:
                     policies["spf_policy"] = "softfail"
                 else:
                     policies["spf_policy"] = "permissive"
-                print(f" -> Found valid SPF TXT configuration payload: {txt_record}")
     except Exception as e:
-        print(f" -> Error resolving SPF policy parameters for domain: {str(e)}")
+        raw["errors"].append(f"SPF lookup failed: {e}")
 
-    # DMARC check
     try:
         answers = dns.resolver.resolve(f"_dmarc.{domain}", 'TXT')
         for rdata in answers:
-            txt_record = "".join([b.decode('utf-8') for b in rdata.strings])
+            txt_record = "".join(b.decode('utf-8') for b in rdata.strings)
+            raw["dmarc_txt_records"].append(txt_record)
             if "v=DMARC1" in txt_record:
                 policies["has_dmarc"] = True
                 p_m = re.search(r"\bp\s*=\s*([a-zA-Z]+)", txt_record)
                 policies["dmarc_policy"] = p_m.group(1).lower() if p_m else "none"
-                print(f" -> Found valid DMARC configuration payload: {txt_record}")
     except Exception as e:
-        print(f" -> Error resolving DMARC records context constraints: {str(e)}")
+        raw["errors"].append(f"DMARC lookup failed: {e}")
 
-    print(f"[BACKEND DNS COMPLETED] Metrics generated: {policies}")
-    return policies
+    log.info("DNS policy check completed", extra={"extra_fields": {
+        "event": "dns_check.completed", "domain": domain, "policies": policies
+    }})
+    return policies, raw
 
-def analyze_url_with_virustotal(url: str) -> dict:
-    print(f"[BACKEND VIRUSTOTAL STEP] Querying payload signature for URL: {url}")
+
+def base64_url_encode(url: str) -> str:
+    return base64.urlsafe_b64encode(url.encode()).decode().strip("=")
+
+
+def analyze_url_with_virustotal(url: str) -> tuple[dict, dict]:
     if not VT_API_KEY:
-        print(" -> Warning: VirusTotal API Key absent from configuration initialization.")
-        return {"status": "unscanned", "malicious_count": 0}
+        log.warning("VT_API_KEY missing -- skipping URL scan",
+                    extra={"extra_fields": {"event": "vt.missing_key", "url": url}})
+        return {"status": "unscanned", "malicious_count": 0}, {}
 
     url_id = base64_url_encode(url)
     vt_url = f"https://www.virustotal.com/api/v3/urls/{url_id}"
@@ -134,34 +165,33 @@ def analyze_url_with_virustotal(url: str) -> dict:
     try:
         res = requests.get(vt_url, headers=headers, timeout=8)
         if res.status_code == 200:
-            stats = res.json().get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
-            print(f" -> VirusTotal analysis extraction metrics data returned: {stats}")
-            return {
+            raw_json = res.json()
+            stats = raw_json.get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
+            summary = {
                 "status": "analyzed",
                 "malicious_count": stats.get("malicious", 0),
                 "suspicious_count": stats.get("suspicious", 0),
-                "harmless_count": stats.get("harmless", 0)
+                "harmless_count": stats.get("harmless", 0),
             }
+            log.info("VirusTotal scan completed", extra={"extra_fields": {
+                "event": "vt.completed", "url": url, "stats": stats
+            }})
+            return summary, raw_json
         else:
-            print(f" -> VirusTotal endpoint server responded with warning error state status code: {res.status_code}")
-            return {"status": f"error_{res.status_code}", "malicious_count": 0}
+            log.warning("VirusTotal returned non-200", extra={"extra_fields": {
+                "event": "vt.error_status", "url": url, "status_code": res.status_code
+            }})
+            return {"status": f"error_{res.status_code}", "malicious_count": 0}, {"status_code": res.status_code}
     except Exception as e:
-        print(f" -> Failed to reach VirusTotal processing stack framework engine: {str(e)}")
-        return {"status": "exception_failed", "malicious_count": 0}
+        log.error("VirusTotal request failed", extra={"extra_fields": {
+            "event": "vt.exception", "url": url, "error": str(e)
+        }})
+        return {"status": "exception_failed", "malicious_count": 0}, {"error": str(e)}
 
-def base64_url_encode(url: str) -> str:
-    import base64
-    return base64.urlsafe_b64encode(url.encode()).decode().strip("=")
 
-# --- [UPGRADED] Refactored to use official modern Google GenAI SDK syntax ---
-def generate_gemini_verdict(sender: str, auth: dict, dns_p: dict, score: int, reasons: list) -> str:
-    print("\n" + "="*60)
-    print("[BACKEND GEMINI STEP] Triggering content analysis prompt generation...")
-    print("="*60)
-    
+def generate_gemini_verdict(sender: str, auth: dict, dns_p: dict, score: int, reasons: list) -> tuple[str, str]:
     if not ai_client:
-        print("[BACKEND GEMINI ERROR] Google GenAI SDK Client object is uninitialized. Verify GEMINI_API_KEY.")
-        return "Gemini pipeline engine key registration missing."
+        return "Gemini pipeline unavailable: API key not configured.", ""
 
     prompt = f"""
     Analyze this email threat telemetry profile as a security intelligence engine:
@@ -174,23 +204,14 @@ def generate_gemini_verdict(sender: str, auth: dict, dns_p: dict, score: int, re
     Provide a summary of up to 3 sentences telling an office employee whether this email is safe to open and why. Be direct.
     """
 
-    print(f" -> Dispatching payload contents via official client.models.generate_content architecture using model 'gemini-2.5-flash'...")
-
     try:
-        # Executing the official modern SDK structure
-        response = ai_client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-        )
-        
-        # Accessing direct generated output text attribute
-        analysis_text = response.text
-        print(f" -> [SDK SUCCESS] Core text summary received perfectly:\n{analysis_text}\n")
-        return analysis_text
-
+        response = ai_client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+        log.info("Gemini verdict generated", extra={"extra_fields": {"event": "gemini.completed"}})
+        return response.text, prompt
     except Exception as e:
-        print(f" -> [SDK CRITICAL RUNTIME ERROR] Failed to parse content using modern SDK engine: {str(e)}")
-        return f"Google GenAI SDK engine execution failure: {str(e)}"
+        log.error("Gemini request failed", extra={"extra_fields": {"event": "gemini.exception", "error": str(e)}})
+        return f"AI analysis failed: {e}", prompt
+
 
 def compute_risk(auth: dict, dns_p: dict, url_r: dict) -> tuple:
     score = 0
@@ -208,49 +229,110 @@ def compute_risk(auth: dict, dns_p: dict, url_r: dict) -> tuple:
 
     if dns_p.get("spf_policy") == "permissive":
         score += 10
-        reasons.append("Sender domain SPF policy is configured to be highly permissive (allows broad sending lists).")
+        reasons.append("Sender domain SPF policy is configured to be highly permissive.")
     if dns_p.get("dmarc_policy") == "none":
         score += 10
-        reasons.append("Sender domain DMARC configuration policy is 'none' — no explicit failure drops are configured.")
+        reasons.append("Sender domain DMARC policy is 'none' -- no enforcement configured.")
 
     for url, report in url_r.items():
         malicious = report.get("malicious_count", 0)
         if malicious > 0:
             score += 40
-            reasons.append(f"VirusTotal Threat Engine Flagged URL: ({malicious} engine warnings matches) — {url}")
+            reasons.append(f"VirusTotal flagged URL ({malicious} engine hits): {url}")
 
-    final_score = min(score, 100)
-    return final_score, reasons
+    return min(score, 100), reasons
+
+
 @app.get("/")
 def root():
     return {"status": "running"}
-    
+
+
 @app.post("/api/analyze")
 async def analyze_endpoint(payload: EmailAnalysisRequest):
-    print("\n" + "#"*70)
-    print("[BACKEND HIGH TIER ROUTE TRIGGERED] /api/analyze execution pipeline running.")
-    print(f" Inbound parameters context profile details: ")
-    print(f"   Sender address parameter configuration input string: '{payload.sender_email}'")
-    print(f"   Inbound context headers trace content byte string size: {len(payload.headers or '')} characters")
-    print(f"   Extracted unique message body URL array length configuration count: {len(payload.urls or [])}")
-    print("#"*70 + "\n")
+    scan_id = str(uuid.uuid4())
+    correlation_id = new_correlation_id()
+    timer = StageTimer()
+
+    log.info("Scan started", extra={"extra_fields": {
+        "event": "scan.started", "scan_id": scan_id,
+        "scanned_by": payload.scanned_by, "sender_email": payload.sender_email,
+        "url_count": len(payload.urls or []),
+    }})
 
     sender = (payload.sender_email or "").strip() or "unknown@unknown"
     domain_match = re.search(r"@([\w.\-]+)", sender)
     domain = domain_match.group(1) if domain_match else ""
 
-    auth_results = parse_authentication_results(payload.headers or "")
-    dns_policies = check_domain_dns_policy(domain) if domain else {}
+    with timer.stage("header_parse"):
+        auth_results = parse_authentication_results(payload.headers or "")
+
+    raw_dns = {}
+    with timer.stage("dns_lookup"):
+        dns_policies, raw_dns = check_domain_dns_policy(domain) if domain else ({}, {})
 
     url_reports = {}
-    for url in (payload.urls or [])[:5]:
-        if url and url.startswith("http"):
-            url_reports[url] = analyze_url_with_virustotal(url)
+    raw_vt = {}
+    with timer.stage("virustotal"):
+        for url in (payload.urls or [])[:5]:
+            if url and url.startswith("http"):
+                summary, raw_json = analyze_url_with_virustotal(url)
+                url_reports[url] = summary
+                raw_vt[url] = raw_json
 
     risk_score, reasons = compute_risk(auth_results, dns_policies, url_reports)
     verdict = "SAFE" if risk_score < 25 else "SUSPICIOUS" if risk_score < 60 else "PHISHING_DETECTED"
-    
-    ai_analysis = generate_gemini_verdict(sender, auth_results, dns_policies, risk_score, reasons)
+
+    with timer.stage("gemini"):
+        ai_analysis, gemini_prompt = generate_gemini_verdict(sender, auth_results, dns_policies, risk_score, reasons)
+
+    stage_latency_ms = timer.as_dict()
+
+    now = datetime.now(timezone.utc)
+
+    scan_doc = {
+        "_id": scan_id,
+        "correlation_id": correlation_id,
+        "scanned_by": payload.scanned_by or "unknown_user",
+        "scanned_at": now,
+        "sender_email": sender,
+        "sender_domain": domain,
+        "verdict": verdict,
+        "risk_score": risk_score,
+        "reasons": reasons,
+        "auth_results": auth_results,
+        "dns_policies": dns_policies,
+        "url_analysis": url_reports,
+        "ai_analysis": ai_analysis,
+        "stage_latency_ms": stage_latency_ms,
+        "urls_extracted": len(payload.urls or []),
+        "headers_received": bool(payload.headers and payload.headers.strip()),
+    }
+
+    raw_doc = {
+        "_id": scan_id,
+        "raw_headers": payload.headers or "",
+        "raw_body_html": payload.body_html or "",
+        "raw_body_text": payload.body_text or "",
+        "raw_vt_responses": raw_vt,
+        "raw_dns_answers": raw_dns,
+        "raw_gemini_prompt": gemini_prompt,
+        "raw_gemini_response": ai_analysis,
+    }
+
+    try:
+        await scans_collection().insert_one(scan_doc)
+        await raw_collection().insert_one(raw_doc)
+        log.info("Scan persisted", extra={"extra_fields": {
+            "event": "scan.persisted", "scan_id": scan_id, "verdict": verdict,
+            "risk_score": risk_score, "stage_latency_ms": stage_latency_ms
+        }})
+    except Exception as e:
+        # Never let a DB write failure break the analyst's result -- log it
+        # loudly and still return the scan result.
+        log.error("Failed to persist scan to MongoDB", extra={"extra_fields": {
+            "event": "scan.persist_failed", "scan_id": scan_id, "error": str(e)
+        }})
 
     return {
         "verdict": verdict,
@@ -263,6 +345,7 @@ async def analyze_endpoint(payload: EmailAnalysisRequest):
             "url_analysis": url_reports,
             "sender_domain": domain,
             "urls_extracted": len(payload.urls or []),
-            "headers_received": bool(payload.headers and payload.headers.strip())
-        }
+            "headers_received": bool(payload.headers and payload.headers.strip()),
+        },
+        "scan_id": scan_id,
     }

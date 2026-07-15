@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Phish Raksha Admin{% endblock %}</title>
+    <link rel="stylesheet" href="/admin/static/admin.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="shell">
+        <nav class="sidenav">
+            <div class="brand">Phish Raksha</div>
+            <a href="/admin" class="{{ 'active' if request.url.path == '/admin' else '' }}">Overview</a>
+            <a href="/admin/users" class="{{ 'active' if '/admin/users' in request.url.path else '' }}">Users</a>
+            <a href="/admin/logout" class="logout">Log out</a>
+        </nav>
+        <main class="content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>

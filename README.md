@@ -150,3 +150,9 @@ The repository already includes a `.gitignore` to exclude:
 - The backend uses FastAPI and a simple analyzer for SPF/DKIM/DMARC and URL reputation.
 - Gemini AI is used to generate an end-user friendly verdict, but the technical risk score is the main signal.
 - This repository does not currently include a remote Git origin or existing `.git` metadata.
+
+
+
+
+
+
